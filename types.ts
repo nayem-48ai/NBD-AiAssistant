@@ -2,37 +2,28 @@
 export enum AppMode {
   CHAT = 'CHAT',
   IMAGE = 'IMAGE',
-  VOICE = 'VOICE',
+  VOICE = 'VOICE'
 }
 
-export interface GroundingLink {
-  title: string;
-  uri: string;
+export enum ChatModelMode {
+  FAST = 'FAST',
+  THINKING = 'THINKING',
+  SEARCH = 'SEARCH'
 }
 
 export interface Message {
   id: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp: Date;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
   image?: string;
-  groundingLinks?: GroundingLink[];
+  groundingLinks?: Array<{ title: string; uri: string }>;
+  isNew?: boolean; // শুধুমাত্র নতুন মেসেজে এনিমেশন দেখানোর জন্য
 }
 
 export interface ChatSession {
   id: string;
   title: string;
   messages: Message[];
-  createdAt: Date;
-  lastMessageAt: Date;
-  config: {
-    useSearch: boolean;
-    useThinking: boolean;
-    useFast: boolean;
-  };
-}
-
-export interface GenerationState {
-  isGenerating: boolean;
-  error: string | null;
+  createdAt: number;
 }

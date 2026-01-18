@@ -1,6 +1,6 @@
 {
   "name": "NBD AI Assistant",
-  "description": "A cutting-edge multimodal AI platform for chat, image editing, and real-time voice powered by Gemini 3.",
+  "description": "A high-performance AI assistant by Net BD Pro featuring advanced chat, image generation, and real-time voice modes powered by Gemini 3.",
   "requestFramePermissions": [
     "camera",
     "microphone"

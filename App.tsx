@@ -1,180 +1,187 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { AppMode, ChatSession } from './types';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import ChatWindow from './components/ChatWindow';
-import ImageGenerator from './components/ImageGenerator';
-import LiveVoice from './components/LiveVoice';
-import { Bot, AlertTriangle, RefreshCw } from 'lucide-react';
+import ChatView from './components/ChatView';
+import ImageStudio from './components/ImageStudio';
+import VoiceMode from './components/VoiceMode';
+import { AppMode, ChatSession, Message, ChatModelMode } from './types';
+import { chatWithGemini } from './services/gemini';
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.CHAT);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    try {
-      return localStorage.getItem('nbd_theme') !== 'light';
-    } catch { return true; }
-  });
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // থিম এবং বডি ক্লাস ম্যানেজমেন্ট
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDarkMode);
-    try {
-      localStorage.setItem('nbd_theme', isDarkMode ? 'dark' : 'light');
-    } catch {}
-  }, [isDarkMode]);
-
-  // সেশন ডেটা লোড এবং সেফটি চেক
-  const [sessions, setSessions] = useState<ChatSession[]>(() => {
-    try {
-      const saved = localStorage.getItem('nbd_history');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((s: any) => ({
-            ...s,
-            createdAt: new Date(s.createdAt || Date.now()),
-            lastMessageAt: new Date(s.lastMessageAt || Date.now()),
-            messages: Array.isArray(s.messages) ? s.messages.map((m: any) => ({
-              ...m,
-              timestamp: new Date(m.timestamp || Date.now())
-            })) : []
-          }));
-        }
-      }
-    } catch (e) {
-      console.error("Storage corruption detected. Starting fresh.");
+    const savedSessions = localStorage.getItem('nbd_sessions');
+    if (savedSessions) {
+      const parsed = JSON.parse(savedSessions);
+      const sanitized = parsed.map((s: ChatSession) => ({
+        ...s,
+        messages: s.messages.map(m => ({ ...m, isNew: false }))
+      }));
+      setSessions(sanitized);
+      if (sanitized.length > 0) setActiveSessionId(sanitized[0].id);
+    } else {
+      handleNewChat();
     }
-    return [];
-  });
+    // Fixed Dark Theme
+    document.documentElement.classList.add('dark');
+  }, []);
 
-  const [currentChatId, setCurrentChatId] = useState<string | null>(() => {
-    return sessions.length > 0 ? sessions[0].id : null;
-  });
-
-  // অটো-সেভ
   useEffect(() => {
-    try {
-      localStorage.setItem('nbd_history', JSON.stringify(sessions));
-    } catch (e) {
-      console.warn("Failed to save history.");
+    if (sessions.length > 0) {
+      localStorage.setItem('nbd_sessions', JSON.stringify(sessions));
     }
   }, [sessions]);
 
-  const activeSession = useMemo(() => {
-    if (!currentChatId) return null;
-    return sessions.find(s => s.id === currentChatId) || null;
-  }, [sessions, currentChatId]);
-
-  const startNewChat = useCallback(() => {
+  const handleNewChat = () => {
     const newId = Date.now().toString();
-    const newChat: ChatSession = {
+    const newSession: ChatSession = {
       id: newId,
-      title: 'নতুন চ্যাট',
+      title: 'New Chat',
       messages: [],
-      createdAt: new Date(),
-      lastMessageAt: new Date(),
-      config: { useSearch: false, useThinking: false, useFast: false }
+      createdAt: Date.now(),
     };
-    setSessions(prev => [newChat, ...prev]);
-    setCurrentChatId(newId);
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newId);
     setMode(AppMode.CHAT);
-    setIsMenuOpen(false);
-  }, []);
-
-  const deleteChat = (id: string) => {
-    setSessions(prev => {
-      const updated = prev.filter(s => s.id !== id);
-      if (currentChatId === id) {
-        setCurrentChatId(updated.length > 0 ? updated[0].id : null);
-      }
-      return updated;
-    });
+    setIsSidebarOpen(false);
   };
 
-  const updateSession = (id: string, updates: Partial<ChatSession>) => {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, ...updates, lastMessageAt: new Date() } : s));
+  const handleSelectSession = (id: string) => {
+    setSessions(prev => prev.map(s => ({
+      ...s,
+      messages: s.messages.map(m => ({ ...m, isNew: false }))
+    })));
+    setActiveSessionId(id);
+    setMode(AppMode.CHAT);
   };
 
-  const handleReset = () => {
-    localStorage.clear();
-    window.location.reload();
+  const activeSession = sessions.find(s => s.id === activeSessionId);
+
+  const sendMessage = async (text: string, image?: string, modelMode: ChatModelMode = ChatModelMode.FAST, existingHistory?: Message[]) => {
+    if (!activeSessionId) return;
+    
+    setIsLoading(true);
+    const baseMessages = (existingHistory || activeSession?.messages || []).map(m => ({ ...m, isNew: false }));
+    const updatedMessages = [...baseMessages];
+    
+    if (!existingHistory) {
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: text,
+        image,
+        timestamp: Date.now(),
+        isNew: false
+      };
+      updatedMessages.push(userMsg);
+    }
+    
+    setSessions(prev => prev.map(s => 
+      s.id === activeSessionId 
+        ? { ...s, messages: [...updatedMessages], title: text.slice(0, 30) || s.title } 
+        : s
+    ));
+
+    try {
+      const response = await chatWithGemini(text, updatedMessages, modelMode, image);
+      
+      const assistantMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.text,
+        groundingLinks: response.links,
+        timestamp: Date.now(),
+        isNew: true 
+      };
+
+      setSessions(prev => prev.map(s => 
+        s.id === activeSessionId 
+          ? { ...s, messages: [...updatedMessages, assistantMsg] } 
+          : s
+      ));
+    } catch (error) {
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "I encountered an error. Please check your connection and try again.",
+        timestamp: Date.now(),
+        isNew: true
+      };
+      setSessions(prev => prev.map(s => 
+        s.id === activeSessionId 
+          ? { ...s, messages: [...updatedMessages, errorMsg] } 
+          : s
+      ));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // যদি অ্যাপ ক্র্যাশ হওয়ার সম্ভাবনা থাকে তবে এরর স্ক্রিন
-  if (initError) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-slate-900">
-        <AlertTriangle size={64} className="text-red-500 mb-4 animate-pulse" />
-        <h1 className="text-2xl font-black mb-2 dark:text-white">Neural Sync Lost</h1>
-        <p className="text-slate-500 mb-8 text-center max-w-sm">{initError}</p>
-        <button onClick={handleReset} className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-xl active:scale-95">
-          <RefreshCw size={20} /> Reset Neural System
-        </button>
-      </div>
-    );
-  }
+  const handleEditMessage = (id: string, newText: string) => {
+    if (!activeSession) return;
+    const msgIndex = activeSession.messages.findIndex(m => m.id === id);
+    if (msgIndex === -1) return;
+    const truncatedHistory = activeSession.messages.slice(0, msgIndex);
+    const editedMsg = { ...activeSession.messages[msgIndex], content: newText, isNew: false };
+    sendMessage(newText, editedMsg.image, ChatModelMode.FAST, [...truncatedHistory, editedMsg]);
+  };
+
+  const handleDeleteSession = (id: string) => {
+    const updated = sessions.filter(s => s.id !== id);
+    setSessions(updated);
+    if (activeSessionId === id && updated.length > 0) setActiveSessionId(updated[0].id);
+    else if (updated.length === 0) handleNewChat();
+  };
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 dark:bg-[#020617] overflow-hidden">
-      {/* Sidebar for Desktop */}
-      <div className="hidden md:flex h-full flex-shrink-0">
-        <Sidebar 
-          currentMode={mode} 
-          setMode={setMode} 
-          isDarkMode={isDarkMode} 
-          toggleTheme={() => setIsDarkMode(!isDarkMode)} 
-          sessions={sessions} 
-          currentChatId={currentChatId} 
-          onSelectChat={(id) => { setCurrentChatId(id); setMode(AppMode.CHAT); }} 
-          onNewChat={startNewChat} 
-          onDeleteChat={deleteChat} 
-        />
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-[999] md:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-80 shadow-2xl animate-in slide-in-from-left duration-300">
-            <Sidebar 
-              currentMode={mode} 
-              setMode={setMode} 
-              isDarkMode={isDarkMode} 
-              toggleTheme={() => setIsDarkMode(!isDarkMode)} 
-              closeMenu={() => setIsMenuOpen(false)} 
-              sessions={sessions} 
-              currentChatId={currentChatId} 
-              onSelectChat={(id) => { setCurrentChatId(id); setMode(AppMode.CHAT); setIsMenuOpen(false); }} 
-              onNewChat={startNewChat} 
-              onDeleteChat={deleteChat} 
-            />
+    <div className="flex h-screen bg-[#0b0f1a] overflow-hidden">
+      <Sidebar
+        currentMode={mode}
+        setMode={setMode}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onNewChat={handleNewChat}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
+      />
+      <main className="flex-1 relative flex flex-col min-w-0">
+        {mode === AppMode.CHAT && (
+          <ChatView
+            messages={activeSession?.messages || []}
+            onSendMessage={(text, img, m) => sendMessage(text, img, m)}
+            onEditMessage={handleEditMessage}
+            isLoading={isLoading}
+            onMenuClick={() => setIsSidebarOpen(true)}
+          />
+        )}
+        {mode === AppMode.IMAGE && (
+          <div className="flex flex-col h-full bg-[#0b0f1a]">
+            <header className="lg:hidden p-4 border-b border-slate-800 flex items-center">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-500">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+              </button>
+              <h1 className="ml-2 font-bold text-white">Image Studio</h1>
+            </header>
+            <ImageStudio />
           </div>
-        </div>
-      )}
-
-      {/* Main UI */}
-      <main className="flex-1 flex flex-col min-w-0 relative">
-        <header className="md:hidden flex-shrink-0 flex items-center justify-between px-6 py-4 border-b dark:border-white/5 bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md z-40">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg"><Bot className="text-white w-5 h-5" /></div>
-            <span className="font-black tracking-tighter dark:text-white uppercase text-sm">NBD AI</span>
+        )}
+        {mode === AppMode.VOICE && (
+          <div className="flex flex-col h-full relative">
+            <header className="lg:hidden p-4 flex items-center absolute top-0 left-0 right-0 z-30">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-white bg-slate-800/50 backdrop-blur-md rounded-xl m-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+              </button>
+            </header>
+            <VoiceMode />
           </div>
-          <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors">
-            <div className="flex flex-col gap-1 w-6">
-              <span className="h-0.5 w-full bg-current rounded-full"></span>
-              <span className="h-0.5 w-full bg-current rounded-full"></span>
-              <span className="h-0.5 w-3/4 bg-current rounded-full"></span>
-            </div>
-          </button>
-        </header>
-
-        <div className="flex-1 relative overflow-hidden">
-          {mode === AppMode.CHAT && <ChatWindow activeSession={activeSession} onUpdateSession={updateSession} onCreateFirstChat={startNewChat} />}
-          {mode === AppMode.IMAGE && <div className="h-full overflow-y-auto"><ImageGenerator /></div>}
-          {mode === AppMode.VOICE && <div className="h-full overflow-y-auto"><LiveVoice /></div>}
-        </div>
+        )}
       </main>
     </div>
   );
