@@ -1,0 +1,8 @@
+{
+  "name": "NBD AI Assistant",
+  "description": "A cutting-edge multimodal AI platform for chat, image editing, and real-time voice powered by Gemini 3.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
