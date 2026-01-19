@@ -3,7 +3,7 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ChatModelMode } from "../types";
 
 // আপনার দেওয়া কি-টি Base64
-const CORE_ENC_KEY = "QUl6YVN5QzNGVXpYWHlhSC1Qa0ZONVFrT3duSVpLbzAydnJlUDRF";
+const CORE_ENC_KEY = "QUl6YVN5QkthQ2ZxTF9YQzlFdDU4bXlfTEZTMWFDOUg5aF9iSUNB";
 
 /**
  * এনক্রিপটেড কি ডিকোড করার ইন্টারনাল ফাংশন
