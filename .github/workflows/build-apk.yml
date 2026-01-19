@@ -31,17 +31,27 @@ jobs:
 
       - name: Install Capacitor & Android Platform
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
           if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             npx cap init "NBD Ai Assistant" com.ainbd.assistant --web-dir dist
           fi
           npx cap add android || true
-          npx cap copy
+          
+      - name: Setup App Icon & Permissions
+        run: |
+          # আইকন চেক করা (assets ফোল্ডারে icon.png থাকলে সেটি ব্যবহার করবে)
+          if [ -f "assets/icon.png" ]; then
+            mkdir -p assets
+            npx capacitor-assets generate --android
+          fi
+
+          # মাইক্রোফোন এবং স্টোরেজ পারমিশন যোগ করা (AndroidManifest.xml এ)
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+
           npx cap sync android
 
       - name: Fix Duplicate Classes (Kotlin Conflict)
         run: |
-          # এই কমান্ডটি ডুপ্লিকেট কোটলিন লাইব্রেরি এরর দূর করবে
           sed -i '/dependencies {/a \    constraints {\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22") {\n            because("kotlin-stdlib-jdk7 is now part of kotlin-stdlib")\n        }\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22") {\n            because("kotlin-stdlib-jdk8 is now part of kotlin-stdlib")\n        }\n    }' android/app/build.gradle
 
       - name: Build APK
@@ -53,5 +63,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nbd-ai-assistant-apk
+          name: nbd-ai-assistant-v1.0
           path: android/app/build/outputs/apk/debug/app-debug.apk
