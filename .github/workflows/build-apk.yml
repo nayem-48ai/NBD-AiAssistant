@@ -25,9 +25,7 @@ jobs:
 
       - name: Obfuscate JavaScript Files
         run: |
-          # Obfuscator ইনস্টল করা
           npm install -g javascript-obfuscator
-          # dist/assets ফোল্ডারের ফাইলগুলোকে সুরক্ষিত করা
           javascript-obfuscator ./dist/assets --output ./dist/assets --compact true --self-defending true --string-array true --string-array-encoding 'base64' --string-array-threshold 0.75
 
       - name: Setup Java 21
@@ -44,38 +42,39 @@ jobs:
           fi
           npx cap add android || true
           
-      - name: Setup App Icon, Permissions & Versioning
+      - name: Fix UI Responsiveness & Permissions
         run: |
-          # আইকন জেনারেট করা
+          # আইকন জেনারেট
           if [ -f "assets/icon.png" ]; then
             npx capacitor-assets generate --android
           fi
 
-          # মাইক্রোফোন এবং স্টোরেজ পারমিশন Manifest-এ যোগ করা
+          # মাইক্রোফোন ও স্টোরেজ পারমিশন
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
 
-          # ভার্সন কোড ৪ এবং নাম ৪.৪.১ সেট করা
+          # UI এর জন্য ফুলস্ক্রিন মোড কন্ট্রোল (এটি স্ট্যাটাস বার ঠিক রাখবে)
+          sed -i 's/android:theme="@style/AppTheme.NoActionBar"/android:theme="@style/AppTheme"/' android/app/src/main/AndroidManifest.xml || true
+
+          # ভার্সন আপডেট
           sed -i 's/versionCode [0-9]*/versionCode 4/' android/app/build.gradle
           sed -i 's/versionName "[^"]*"/versionName "4.4.1"/' android/app/build.gradle
-          
-          sed -i 's/android:versionCode="[0-9]*"/android:versionCode="4"/' android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:versionName="[0-9.]*"/android:versionName="4.4.1"/' android/app/src/main/AndroidManifest.xml
 
           npx cap sync android
 
-      - name: Fix Duplicate Classes (Kotlin Conflict)
+      - name: Fix Duplicate Classes
         run: |
           sed -i '/dependencies {/a \    constraints {\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22") {\n            because("kotlin-stdlib-jdk7 is now part of kotlin-stdlib")\n        }\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22") {\n            because("kotlin-stdlib-jdk8 is now part of kotlin-stdlib")\n        }\n    }' android/app/build.gradle
 
-      - name: Build APK
+      - name: Build Universal APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # এটি সব মোবাইলের জন্য একটি ইউনিভার্সাল APK তৈরি করবে
+          ./gradlew assembleDebug -Pandroid.bundle.enableUncompressedNativeLibs=false
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nbd-ai-assistant-v4.4.1-secured
+          name: nbd-ai-assistant-v4.4.1-final
           path: android/app/build/outputs/apk/debug/app-debug.apk
           
