@@ -42,7 +42,7 @@ jobs:
           fi
           npx cap add android || true
           
-      - name: Fix UI Responsiveness & Permissions
+      - name: Setup App Icon, Permissions & Versioning
         run: |
           # আইকন জেনারেট
           if [ -f "assets/icon.png" ]; then
@@ -52,10 +52,10 @@ jobs:
           # মাইক্রোফোন ও স্টোরেজ পারমিশন
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
 
-          # UI এর জন্য ফুলস্ক্রিন মোড কন্ট্রোল (এটি স্ট্যাটাস বার ঠিক রাখবে)
-          sed -i 's/android:theme="@style/AppTheme.NoActionBar"/android:theme="@style/AppTheme"/' android/app/src/main/AndroidManifest.xml || true
+          # UI থিম ফিক্স (সহজ পদ্ধতি)
+          sed -i 's/AppTheme.NoActionBar/AppTheme/g' android/app/src/main/AndroidManifest.xml
 
-          # ভার্সন আপডেট
+          # ভার্সন আপডেট (Code 4, Name 4.4.1)
           sed -i 's/versionCode [0-9]*/versionCode 4/' android/app/build.gradle
           sed -i 's/versionName "[^"]*"/versionName "4.4.1"/' android/app/build.gradle
 
@@ -65,16 +65,15 @@ jobs:
         run: |
           sed -i '/dependencies {/a \    constraints {\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22") {\n            because("kotlin-stdlib-jdk7 is now part of kotlin-stdlib")\n        }\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22") {\n            because("kotlin-stdlib-jdk8 is now part of kotlin-stdlib")\n        }\n    }' android/app/build.gradle
 
-      - name: Build Universal APK
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          # এটি সব মোবাইলের জন্য একটি ইউনিভার্সাল APK তৈরি করবে
-          ./gradlew assembleDebug -Pandroid.bundle.enableUncompressedNativeLibs=false
+          # পুরনো অপশন সরিয়ে ডিফল্ট বিল্ড কমান্ড
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nbd-ai-assistant-v4.4.1-final
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          
