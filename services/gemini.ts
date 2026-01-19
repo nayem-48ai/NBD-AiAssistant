@@ -2,8 +2,8 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ChatModelMode } from "../types";
 
-const CORE_ENC_KEY_1 = "QUl6YVN5QkthQ2ZxTF9YQzlFdDU4bXlfTEZTMWFDOUg5aF9iSUNB";
-const CORE_ENC_KEY_2 = "QUl6YVN5QlFnSmdSeTZpVVhheGxEbUVsbXlhMmVTZGdaZElLeFdn"; 
+const CORE_ENC_KEY_1 = "QUl6YVN5RHBGMXI1cXRnNmRYMGpQQ3NIRFVjQlZvVEktemIwaUow";
+const CORE_ENC_KEY_2 = "QUl6YVN5Q21GdHJlRVBZV1kwN09SM0ZrcW1PUG5MSzJ4c0tnZUFZ"; 
 
 export const getActiveApiKey = () => {
   const selectedEngine = localStorage.getItem('nbd_api_engine') || 'API 1';
