@@ -49,11 +49,11 @@ jobs:
             npx capacitor-assets generate --android
           fi
 
-          # মাইক্রোফোন ও স্টোরেজ পারমিশন
-          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+          # মাইক্রোফোন ও স্টোরেজ পারমিশন (সঠিক স্থানে যোগ করা)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
 
-          # UI থিম ফিক্স (সহজ পদ্ধতি)
-          sed -i 's/AppTheme.NoActionBar/AppTheme/g' android/app/src/main/AndroidManifest.xml
+          # থিম ফিক্স (শুধুমাত্র মেইন অ্যাক্টিভিটির থিম পরিবর্তন করবে, লঞ্চ থিম নয়)
+          sed -i 's/android:theme="@style\/AppTheme.NoActionBar"/android:theme="@style\/AppTheme"/' android/app/src/main/AndroidManifest.xml
 
           # ভার্সন আপডেট (Code 4, Name 4.4.1)
           sed -i 's/versionCode [0-9]*/versionCode 4/' android/app/build.gradle
@@ -69,11 +69,10 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          # পুরনো অপশন সরিয়ে ডিফল্ট বিল্ড কমান্ড
           ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nbd-ai-assistant-v4.4.1-final
+          name: nbd-ai-assistant-v4.4.1-fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
