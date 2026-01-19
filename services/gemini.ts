@@ -2,44 +2,53 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ChatModelMode } from "../types";
 
+// আপনার দেওয়া কি-টি Base64 এনক্রিপটেড অবস্থায়
+const CORE_ENC_KEY = "QUl6YVN5QzNGVXpYWHlhSC1Qa0ZONVFrT3duSVpLbzAydnJlUDRF";
+
 let cachedRemoteKey: string | null = null;
-const REMOTE_CONFIG_URL = "https://github.com/nayem-48ai/nayem-48ai/blob/main/.env.local";
+const REMOTE_CONFIG_URL = "https://raw.githubusercontent.com/nayem-48ai/NBD-AiAssistant/main/.env.local";
 
 /**
- * GitHub থেকে রিমোটলি এপিআই কি লোড করার ফাংশন
+ * এনক্রিপটেড কি ডিকোড করার ইন্টারনাল ফাংশন
+ */
+const getCoreKey = () => atob(CORE_ENC_KEY);
+
+/**
+ * GitHub থেকে রিমোটলি এপিআই কি লোড করার উন্নত ফাংশন
  */
 export const fetchRemoteKey = async (): Promise<string | null> => {
   if (cachedRemoteKey) return cachedRemoteKey;
   try {
-    const response = await fetch(REMOTE_CONFIG_URL);
-    if (!response.ok) throw new Error("Failed to fetch remote config");
+    // ক্যাশ এড়ানোর জন্য টাইমস্ট্যাম্প যুক্ত করা হয়েছে
+    const response = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`);
+    if (!response.ok) throw new Error("Remote config unreachable");
     const text = await response.text();
     
-    // .env ফরম্যাট থেকে API_KEY এক্সট্র্যাক্ট করা (API_KEY=value)
-    const match = text.match(/API_KEY\s*=\s*([^\s\n]+)/);
+    // .env ফরম্যাট থেকে API_KEY এক্সট্র্যাক্ট করার উন্নত রিজেক্স
+    const match = text.match(/API_KEY\s*=\s*["']?([A-Za-z0-9_-]+)["']?/);
     if (match && match[1]) {
       cachedRemoteKey = match[1].trim();
-      console.log("Remote API Key loaded successfully");
       return cachedRemoteKey;
     }
     return null;
   } catch (error) {
-    console.error("Error loading remote key:", error);
+    console.error("Remote key fetch failed, falling back to core...");
     return null;
   }
 };
 
-export const getGeminiClient = () => {
-  // ১. চেক করা ইউজার নিজের কি দিয়েছে কি না (LocalStorage)
+/**
+ * এপিআই কি সংগ্রহের মূল লজিক
+ */
+export const getActiveApiKey = () => {
   const customKey = localStorage.getItem('nbd_custom_api_key');
-  
-  // ২. ইউজার কি না দিলে রিমোট কি বা এনভায়রনমেন্ট কি ব্যবহার করা
-  const apiKey = customKey || cachedRemoteKey || process.env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please wait for remote config or provide one.");
-  }
-  
+  // Priority: Custom > Remote > Core Encrypted
+  return customKey || cachedRemoteKey || getCoreKey();
+};
+
+export const getGeminiClient = () => {
+  const apiKey = getActiveApiKey();
+  if (!apiKey) throw new Error("No API key available");
   return new GoogleGenAI({ apiKey });
 };
 
@@ -68,8 +77,8 @@ export const chatWithGemini = async (
   
   STYLE RULES:
   - Provide clean, professional responses.
-  - DO NOT use any markdown symbols like asterisks (**), hashtags (#), or backticks.
-  - REPLY in the same language the user uses (Bengali or English).
+  - DO NOT use markdown symbols like asterisks or hashtags.
+  - REPLY in the same language the user uses.
   - Be direct and helpful.`;
 
   const config: any = { 
