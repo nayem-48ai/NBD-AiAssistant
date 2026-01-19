@@ -27,8 +27,8 @@ jobs:
         run: |
           # Obfuscator ইনস্টল করা
           npm install -g javascript-obfuscator
-          # dist ফোল্ডারের সব JS ফাইল অগোছালো করা (URL এবং String এনকোড হবে)
-          javascript-obfuscator ./dist/assets --output ./dist/assets --compact true --self-defending true --string-array true --rotate-string-array true --string-array-threshold 0.75
+          # dist/assets ফোল্ডারের ফাইলগুলোকে সুরক্ষিত করা (এরর ফিক্সড)
+          javascript-obfuscator ./dist/assets --output ./dist/assets --compact true --self-defending true --string-array true --string-array-encoding 'base64' --string-array-threshold 0.75
 
       - name: Setup Java 21
         uses: actions/setup-java@v4
@@ -54,7 +54,7 @@ jobs:
           # মাইক্রোফোন এবং স্টোরেজ পারমিশন Manifest-এ যোগ করা
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
 
-          # ভার্সন কোড এবং ভার্সন নেম আপডেট (Version 4, Name 4.4.1)
+          # ভার্সন কোড ৪ এবং নাম ৪.৪.১ সেট করা
           sed -i 's/versionCode [0-9]*/versionCode 4/' android/app/build.gradle
           sed -i 's/versionName "[^"]*"/versionName "4.4.1"/' android/app/build.gradle
           
