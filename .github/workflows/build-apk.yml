@@ -27,7 +27,7 @@ jobs:
         run: |
           # Obfuscator ইনস্টল করা
           npm install -g javascript-obfuscator
-          # dist/assets ফোল্ডারের ফাইলগুলোকে সুরক্ষিত করা (এরর ফিক্সড)
+          # dist/assets ফোল্ডারের ফাইলগুলোকে সুরক্ষিত করা
           javascript-obfuscator ./dist/assets --output ./dist/assets --compact true --self-defending true --string-array true --string-array-encoding 'base64' --string-array-threshold 0.75
 
       - name: Setup Java 21
