@@ -2,11 +2,8 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { ChatModelMode } from "../types";
 
-// আপনার দেওয়া কি-টি Base64 এনক্রিপটেড অবস্থায়
+// আপনার দেওয়া কি-টি Base64 এনক্রিপটেড অবস্থায় (AIzaSyC3FUzXXyaH-PkFN5QmOwnIZKo02vreP4E)
 const CORE_ENC_KEY = "QUl6YVN5QzNGVXpYWHlhSC1Qa0ZONVFrT3duSVpLbzAydnJlUDRF";
-
-let cachedRemoteKey: string | null = null;
-const REMOTE_CONFIG_URL = "https://raw.githubusercontent.com/nayem-48ai/NBD-AiAssistant/main/.env.local";
 
 /**
  * এনক্রিপটেড কি ডিকোড করার ইন্টারনাল ফাংশন
@@ -14,36 +11,12 @@ const REMOTE_CONFIG_URL = "https://raw.githubusercontent.com/nayem-48ai/NBD-AiAs
 const getCoreKey = () => atob(CORE_ENC_KEY);
 
 /**
- * GitHub থেকে রিমোটলি এপিআই কি লোড করার উন্নত ফাংশন
- */
-export const fetchRemoteKey = async (): Promise<string | null> => {
-  if (cachedRemoteKey) return cachedRemoteKey;
-  try {
-    // ক্যাশ এড়ানোর জন্য টাইমস্ট্যাম্প যুক্ত করা হয়েছে
-    const response = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`);
-    if (!response.ok) throw new Error("Remote config unreachable");
-    const text = await response.text();
-    
-    // .env ফরম্যাট থেকে API_KEY এক্সট্র্যাক্ট করার উন্নত রিজেক্স
-    const match = text.match(/API_KEY\s*=\s*["']?([A-Za-z0-9_-]+)["']?/);
-    if (match && match[1]) {
-      cachedRemoteKey = match[1].trim();
-      return cachedRemoteKey;
-    }
-    return null;
-  } catch (error) {
-    console.error("Remote key fetch failed, falling back to core...");
-    return null;
-  }
-};
-
-/**
- * এপিআই কি সংগ্রহের মূল লজিক
+ * এপিআই কি সংগ্রহের মূল লজিক (Priority: Custom > Core Encrypted)
  */
 export const getActiveApiKey = () => {
   const customKey = localStorage.getItem('nbd_custom_api_key');
-  // Priority: Custom > Remote > Core Encrypted
-  return customKey || cachedRemoteKey || getCoreKey();
+  // যদি ইউজার নিজের কি দেয় তবে সেটি ব্যবহার হবে, নয়তো এনক্রিপটেড কি ডিকোড হয়ে কাজ করবে
+  return customKey || getCoreKey();
 };
 
 export const getGeminiClient = () => {
