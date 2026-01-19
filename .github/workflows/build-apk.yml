@@ -37,16 +37,19 @@ jobs:
           fi
           npx cap add android || true
           
-      - name: Setup App Icon & Permissions
+      - name: Setup App Icon, Permissions & Versioning
         run: |
-          # আইকন চেক করা (assets ফোল্ডারে icon.png থাকলে সেটি ব্যবহার করবে)
+          # আইকন জেনারেট করা (assets/icon.png থাকলে)
           if [ -f "assets/icon.png" ]; then
-            mkdir -p assets
             npx capacitor-assets generate --android
           fi
 
-          # মাইক্রোফোন এবং স্টোরেজ পারমিশন যোগ করা (AndroidManifest.xml এ)
+          # মাইক্রোফোন এবং স্টোরেজ পারমিশন যোগ করা
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+
+          # ভার্সন কোড এবং ভার্সন নেম সেট করা (Version Code: 4, Version Name: 4.4.1)
+          sed -i 's/versionCode [0-9]*/versionCode 4/' android/app/build.gradle
+          sed -i 's/versionName "[^"]*"/versionName "4.4.1"/' android/app/build.gradle
 
           npx cap sync android
 
@@ -63,5 +66,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nbd-ai-assistant-v1.0
+          name: nbd-ai-assistant-v4.4.1
           path: android/app/build/outputs/apk/debug/app-debug.apk
