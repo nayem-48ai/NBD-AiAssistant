@@ -78,3 +78,4 @@ jobs:
         with:
           name: nbd-ai-assistant-v4.4.1-secured
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          
