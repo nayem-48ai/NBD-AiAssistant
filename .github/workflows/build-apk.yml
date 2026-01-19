@@ -27,17 +27,22 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '21' # এখানে আমরা ভার্সন ১৭ থেকে ২১ এ পরিবর্তন করলাম
+          java-version: '21'
 
       - name: Install Capacitor & Android Platform
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          if [ ! -f "capacitor.config.json" ]; then
+          if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             npx cap init "NBD Ai Assistant" com.ainbd.assistant --web-dir dist
           fi
           npx cap add android || true
           npx cap copy
           npx cap sync android
+
+      - name: Fix Duplicate Classes (Kotlin Conflict)
+        run: |
+          # এই কমান্ডটি ডুপ্লিকেট কোটলিন লাইব্রেরি এরর দূর করবে
+          sed -i '/dependencies {/a \    constraints {\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22") {\n            because("kotlin-stdlib-jdk7 is now part of kotlin-stdlib")\n        }\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22") {\n            because("kotlin-stdlib-jdk8 is now part of kotlin-stdlib")\n        }\n    }' android/app/build.gradle
 
       - name: Build APK
         run: |
